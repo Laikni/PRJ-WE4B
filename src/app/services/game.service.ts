@@ -7,7 +7,7 @@ import { Game, GameFilters } from '../models/game.model';
 @Injectable({ providedIn: 'root' })
 export class GameService {
 
-  // Remplace "ton-projet" par le nom de ton dossier dans htdocs/
+  
   private apiUrl = 'http://localhost/WE4B/api/games.php';
 
   constructor(private http: HttpClient) {}

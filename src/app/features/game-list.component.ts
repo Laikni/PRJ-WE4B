@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core'; // 1. Ajoute ChangeDetectorRef ici
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
@@ -29,11 +29,14 @@ export class GameListComponent implements OnInit {
   isLoading = false;
   hasError = false;
 
+  // AJOUT : feedback visuel bouton panier par jeu
+  cartFeedback: Record<number, string> = {};
+
   constructor(
     private gameService: GameService,
     private cartService: CartService,
     private route: ActivatedRoute,
-    private cdr: ChangeDetectorRef // 2. Injecte-le ici dans le constructeur
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -59,7 +62,7 @@ export class GameListComponent implements OnInit {
       switchMap(([formValues, platform]) => {
         this.isLoading = true;
         this.hasError  = false;
-        this.cdr.detectChanges(); // 3. Force le loader à s'afficher au début
+        this.cdr.detectChanges();
 
         const filters: GameFilters = {
           search:   formValues.search   || '',
@@ -73,17 +76,21 @@ export class GameListComponent implements OnInit {
       next: (data) => {
         this.games     = data;
         this.isLoading = false;
-        this.cdr.detectChanges(); // 4. CRUCIAL : Force Angular à afficher les cards immédiatement !
+        this.cdr.detectChanges();
       },
       error: () => {
         this.isLoading = false;
         this.hasError  = true;
-        this.cdr.detectChanges(); // 5. Force l'affichage de l'erreur si besoin
+        this.cdr.detectChanges();
       }
     });
   }
 
+  // AJOUT : retourne le statut et gère le feedback visuel
   addToCart(game: Game): void {
-    this.cartService.addToCart(game);
+    const id     = game.id_jeu!;
+    const status = this.cartService.addToCart(game);
+    this.cartFeedback[id] = status;
+    setTimeout(() => { this.cartFeedback[id] = 'idle'; }, 1200);
   }
 }

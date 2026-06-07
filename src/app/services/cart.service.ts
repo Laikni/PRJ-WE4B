@@ -1,52 +1,98 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { OrderLine } from '../models/order.model';
+import { BehaviorSubject } from 'rxjs';
+import { Game } from '../models/game.model';
+
+export interface CartItem {
+  id:       number;
+  title:    string;
+  price:    number;
+  image:    string;
+  stock:    number;
+  quantity: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class CartService {
-  private apiUrl = 'https://api.mon-gamestore.com/cart';
-  
-  // Gestion locale et réactive du panier
-  private cartItemsSubject = new BehaviorSubject<any[]>([]);
+
+  private readonly STORAGE_KEY = 'gameCart';
+
+  // Observable du nombre total d'articles (pour le badge navbar)
+  private cartCountSubject = new BehaviorSubject<number>(0);
+  public cartCount$ = this.cartCountSubject.asObservable();
+
+  // Observable du contenu complet (pour la page panier)
+  private cartItemsSubject = new BehaviorSubject<CartItem[]>([]);
   public cartItems$ = this.cartItemsSubject.asObservable();
 
-  constructor(private http: HttpClient) {
-    const savedCart = localStorage.getItem('gamestore_cart');
-    if (savedCart) this.cartItemsSubject.next(JSON.parse(savedCart));
+  constructor() {
+    this.loadFromStorage();
   }
 
-  // Ajoute un élément au panier côté client
-  addToCart(game: any): void {
-    const currentItems = this.cartItemsSubject.value;
-    const existing = currentItems.find(item => item.id === game.id_jeu);
+  /** Ajoute un jeu au panier (ou incrémente la quantité). Retourne un status. */
+  addToCart(game: Game): 'added' | 'stock_max' {
+    const items = this.getItems();
+    const existing = items.find(i => i.id === game.id_jeu);
+    const currentQty = existing ? existing.quantity : 0;
+
+    if (currentQty >= game.stock) {
+      return 'stock_max';
+    }
 
     if (existing) {
       existing.quantity += 1;
     } else {
-      currentItems.push({ id: game.id_jeu, title: game.titre, quantity: 1, price: game.prix, stock: game.stock });
+      items.push({
+        id:       game.id_jeu!,
+        title:    game.titre,
+        price:    game.prix,
+        image:    game.image_url,
+        stock:    game.stock,
+        quantity: 1,
+      });
     }
 
-    this.saveAndPublish(currentItems);
+    this.saveAndEmit(items);
+    return 'added';
   }
 
-  // Traduit CartController::checkout() (Envoi du JSON via HTTP POST)
-  checkout(): Observable<{ success: boolean; error?: string }> {
-    const payload = { cart: this.cartItemsSubject.value };
-    return this.http.post<{ success: boolean; error?: string }>(`${this.apiUrl}/checkout.php`, payload);
+  removeItem(id: number): void {
+    this.saveAndEmit(this.getItems().filter(i => i.id !== id));
   }
 
-  // Traduit CartController::myOrders()
-  getMyOrders(): Observable<OrderLine[]> {
-    return this.http.get<OrderLine[]>(`${this.apiUrl}/my-orders.php`);
+  updateQuantity(id: number, quantity: number): void {
+    const items = this.getItems();
+    const item = items.find(i => i.id === id);
+    if (item) {
+      item.quantity = Math.max(1, Math.min(quantity, item.stock));
+      this.saveAndEmit(items);
+    }
   }
 
   clearCart(): void {
-    this.saveAndPublish([]);
+    this.saveAndEmit([]);
   }
 
-  private saveAndPublish(items: any[]): void {
-    localStorage.setItem('gamestore_cart', JSON.stringify(items));
+  getItems(): CartItem[] {
+    return [...this.cartItemsSubject.value];
+  }
+
+  getTotal(): number {
+    return this.cartItemsSubject.value.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  }
+
+  private loadFromStorage(): void {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      const items: CartItem[] = raw ? JSON.parse(raw) : [];
+      this.saveAndEmit(items);
+    } catch {
+      this.saveAndEmit([]);
+    }
+  }
+
+  private saveAndEmit(items: CartItem[]): void {
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(items));
     this.cartItemsSubject.next(items);
+    this.cartCountSubject.next(items.reduce((n, i) => n + i.quantity, 0));
   }
 }

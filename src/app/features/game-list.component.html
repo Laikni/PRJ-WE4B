@@ -75,8 +75,26 @@
                 </ng-container>
               </div>
 
-              <button class="btn btn-danger w-100 btn-sm" (click)="addToCart(jeu)">
-                <i class="fas fa-shopping-cart"></i> Ajouter
+              <!-- AJOUT : bouton avec feedback visuel -->
+              <button class="btn w-100 btn-sm"
+                      [disabled]="cartFeedback[jeu.id_jeu!] === 'stock_max'"
+                      [ngClass]="{
+                        'btn-danger':  !cartFeedback[jeu.id_jeu!] || cartFeedback[jeu.id_jeu!] === 'idle',
+                        'btn-success': cartFeedback[jeu.id_jeu!] === 'added',
+                        'btn-warning': cartFeedback[jeu.id_jeu!] === 'stock_max'
+                      }"
+                      (click)="addToCart(jeu)">
+                <ng-container [ngSwitch]="cartFeedback[jeu.id_jeu!]">
+                  <ng-container *ngSwitchCase="'added'">
+                    <i class="fas fa-check"></i> Ajouté !
+                  </ng-container>
+                  <ng-container *ngSwitchCase="'stock_max'">
+                    <i class="fas fa-times"></i> Stock max atteint
+                  </ng-container>
+                  <ng-container *ngSwitchDefault>
+                    <i class="fas fa-shopping-cart"></i> Ajouter
+                  </ng-container>
+                </ng-container>
               </button>
             </div>
           </div>
@@ -86,6 +104,11 @@
 
       <div class="col-12 text-center py-5" *ngIf="games.length === 0 && !isLoading">
         <p class="text-secondary">Aucun jeu trouvé pour ces critères.</p>
+      </div>
+
+      <!-- AJOUT : message d'erreur si API inaccessible -->
+      <div class="col-12 text-center py-5" *ngIf="hasError">
+        <p class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Impossible de charger les jeux. Vérifie que XAMPP est démarré.</p>
       </div>
 
     </div>
