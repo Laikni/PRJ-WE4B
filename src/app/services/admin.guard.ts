@@ -10,6 +10,6 @@ export const adminGuard: CanActivateFn = (route, state) => {
     return true; // Accès autorisé à la route d'administration
   }
 
-  router.navigate(['/games']); // Redirection si non admin (remplace $this->redirect)
+  router.navigate(['/games']); // Redirection si non admin
   return false;
 };
